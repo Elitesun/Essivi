@@ -1,0 +1,28 @@
+[project]
+name = "essivi"
+version = "0.1.0"
+package-mode = false
+description = ""
+authors = [
+    {name = "Elitesun",email = "elitesun.dev@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "django (>=6.0.1,<7.0.0)",
+    "djangorestframework",
+    "dj-rest-auth",
+    "djangorestframework-simplejwt",
+    "django-cors-headers",
+    "django-filter",
+    "drf-spectacular",
+    "Pillow",
+    "python-decouple",
+    "pyotp",
+    "qrcode"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
