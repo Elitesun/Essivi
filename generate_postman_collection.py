@@ -69,7 +69,8 @@ def generate_collection():
                         "script": {
                             "exec": [
                                 "var jsonData = pm.response.json();",
-                                "pm.environment.set(\"access_token\", jsonData.access);"
+                                "pm.collectionVariables.set(\"access_token\", jsonData.access);",
+                                "pm.collectionVariables.set(\"refresh_token\", jsonData.refresh);"
                             ],
                             "type": "text/javascript"
                         }

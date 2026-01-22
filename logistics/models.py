@@ -7,7 +7,7 @@ class AgentCommercial(models.Model):
     class Status(models.TextChoices):
         ACTIF = 'actif', 'Actif'
         INACTIF = 'inactif', 'Inactif'
-        EN_LIVRAISON = 'en_livraison', 'En Livraison'
+        EN_TOURNEE = 'en_tournee', 'En Tournée'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='agent_profile')
