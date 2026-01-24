@@ -101,6 +101,42 @@ def generate_collection():
     }
     collection["item"].append(auth_folder)
 
+    # Admin Users Folder
+    admin_folder = {
+        "name": "Admin Users",
+        "item": [
+            create_item("List Admins", "GET", "auth/admin-users/"),
+            create_item("Create Super Admin", "POST", "auth/admin-users/", {
+                "email": "super@essivivi.com",
+                "name": "Super Admin",
+                "password": "SecurePassword123",
+                "confirm_password": "SecurePassword123",
+                "role": "super_admin",
+                "status": "actif"
+            }),
+            create_item("Create Gestionnaire", "POST", "auth/admin-users/", {
+                "email": "gestionnaire@essivivi.com",
+                "name": "Gestionnaire",
+                "password": "SecurePassword123",
+                "confirm_password": "SecurePassword123",
+                "role": "gestionnaire",
+                "status": "actif"
+            }),
+            create_item("Create Superviseur", "POST", "auth/admin-users/", {
+                "email": "superviseur@essivivi.com",
+                "name": "Superviseur",
+                "password": "SecurePassword123",
+                "confirm_password": "SecurePassword123",
+                "role": "superviseur",
+                "status": "actif"
+            }),
+            create_item("Get Admin", "GET", "auth/admin-users/{{admin_id}}/"),
+            create_item("Update Admin", "PUT", "auth/admin-users/{{admin_id}}/", {"status": "actif"}),
+            create_item("Delete Admin", "DELETE", "auth/admin-users/{{admin_id}}/")
+        ]
+    }
+    collection["item"].append(admin_folder)
+
     # Agents Folder
     agents_folder = {
         "name": "Agents",
@@ -109,8 +145,7 @@ def generate_collection():
             create_item("Create Agent", "POST", "agents/", {
                 "nom": "Doe",
                 "prenom": "John", 
-                "telephone": "+22890909090",
-                "tricycle_assigne": "TRI-001"
+                "telephone": "+22890909090"
             }),
             create_item("Get Agent", "GET", "agents/{{agent_id}}/"),
             create_item("Update Agent", "PUT", "agents/{{agent_id}}/", {"statut": "actif"}),
@@ -118,6 +153,26 @@ def generate_collection():
         ]
     }
     collection["item"].append(agents_folder)
+
+    # Tricycles Folder
+    tricycles_folder = {
+        "name": "Tricycles",
+        "item": [
+            create_item("List Tricycles", "GET", "tricycles/"),
+            create_item("Get Tricycle", "GET", "tricycles/{{tricycle_id}}/"),
+            create_item("Create Tricycle", "POST", "tricycles/", {
+                "code": "TR-001",
+                "description": "Tricycle for delivery zone 1",
+                "is_active": True
+            }),
+            create_item("Update Tricycle", "PUT", "tricycles/{{tricycle_id}}/", {
+                "code": "TR-001",
+                "description": "Updated description",
+                "is_active": True
+            })
+        ]
+    }
+    collection["item"].append(tricycles_folder)
 
     # Clients Folder
     clients_folder = {
@@ -159,12 +214,25 @@ def generate_collection():
     }
     collection["item"].append(deliveries_folder)
     
+    # Cartography Folder
+    cartography_folder = {
+        "name": "Cartography",
+        "item": [
+            create_item("Delivery Markers", "GET", "cartography/livraisons"),
+            create_item("Agent Positions", "GET", "cartography/agents"),
+            create_item("Service Zones", "GET", "cartography/zones"),
+            create_item("Zone List", "GET", "cartography/zones/list"),
+            create_item("Agent List", "GET", "cartography/agents/list"),
+            create_item("Heatmap Data", "GET", "cartography/heatmap"),
+            create_item("Optimized Routes", "GET", "cartography/routes"),
+            create_item("Stats Summary", "GET", "cartography/stats/summary")
+        ]
+    }
+    collection["item"].append(cartography_folder)
+    
     # Dashboard
     collection["item"].append(create_item("Dashboard Stats", "GET", "dashboard/stats/"))
 
-    with open('essivi_custom_collection.json', 'w') as f:
+    with open('essivi_collection.json', 'w') as f:
         json.dump(collection, f, indent=4)
-    print("Collection generated: essivi_custom_collection.json")
-
-if __name__ == "__main__":
-    generate_collection()
+    print("Collection generated: essivi_collection.json")

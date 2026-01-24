@@ -1,152 +1,115 @@
-# Spécifications des Besoins Backend - Projet Essivivi Dashboard
+1. Onglet : Rapports de Production
+Cet onglet utilise deux endpoints distincts.
 
-Ce document recense l'ensemble des besoins backend nécessaires pour le bon fonctionnement de l'application frontend (Next.js), basé sur l'analyse du code existant et de la collection Postman.
+A. Cartes de résumé (Haut de page)
+Endpoint : GET /dashboard/stats/ Description : Retourne les totaux globaux et les pourcentages de croissance.
 
-## 1. Standards Globaux (Transverses)
+json
+{
+  "total_deliveries": 1250,       // Nombre total de livraisons
+  "total_quantity": 45000,        // Quantité totale (ex: litres/m3)
+  "total_amount": 15000000,       // Montant total en FCFA
+  "delivery_growth": 12.5,        // Croissance livraisons vs mois dernier (%)
+  "quantity_growth": 8.4,         // Croissance quantité vs mois dernier (%)
+  "amount_growth": -2.1           // Croissance montant vs mois dernier (%)
+}
+B. Performance par Agent (Tableau)
+Endpoint : GET /dashboard/performance-agents/ Description : Retourne la liste des agents et leurs performances individuelles.
 
-*   **Format de réponse** : JSON
-*   **Pagination** : Tous les endpoints de liste (`GET /collection`) doivent supporter la pagination (ex: `?page=1&limit=10`).
-*   **Filtres & Recherche** : Supporter des query params pour la recherche (ex: `?search=koffi`) et le filtrage (ex: `?status=ABORTED`).
-*   **Authentification** : JWT (Access Token + Refresh Token). Le token doit être passé dans le header `Authorization: Bearer <token>`.
+json
+[
+  {
+    "agent_id": "AGT-001",
+    "agent_name": "Kouamé Jean",
+    "deliveries_count": 145,
+    "quantity_delivered": 5200,
+    "total_amount": 1800000,
+    "status": "Top Performer"     // Valeurs acceptées: "Top Performer", "Excellent", "Bon", "Moyen", "Faible"
+  },
+  {
+    "agent_id": "AGT-002",
+    "agent_name": "Diallo Moussa",
+    "deliveries_count": 98,
+    "quantity_delivered": 3400,
+    "total_amount": 1100000,
+    "status": "Bon"
+  }
+]
+(Note : Le service gère aussi si ces données sont encapsulées dans un objet { "results": [...] } ou { "data": [...] })
 
----
+2. Onglet : Analyses Statistiques
+Cet onglet affiche des graphiques et combine des données de production et financières.
 
-## 2. Module : Authentification (Auth)
+A. Données des Graphiques (Heures de pointe & Zones)
+Endpoint : GET /dashboard/production/?period=30 Description : Données pour les graphiques à barres.
 
-Nécessaire pour sécuriser l'accès au dashboard.
+json
+{
+  "peak_hours": [                 // Pour le graphique "Heures de Pointe"
+    { "hour": "08:00", "sales": 45 },
+    { "hour": "09:00", "sales": 120 },
+    { "hour": "10:00", "sales": 80 },
+    { "hour": "14:00", "sales": 60 }
+  ],
+  "top_zones": [                  // Pour le graphique "Zones Géographiques"
+    { "zone": "Cocody", "value": 1500 },
+    { "zone": "Yopougon", "value": 1200 },
+    { "zone": "Marcory", "value": 950 }
+  ],
+  "sales_over_time": []           // (Optionnel, non utilisé par le composant actuel mais prévu dans l'interface)
+}
+B. Données du Graphique "Évolution du Chiffre d'Affaires"
+Le graphique "Évolution du Chiffre d'Affaires" utilise les données revenue_history provenant de l'endpoint financier ci-dessous (GET /dashboard/financial/).
 
-| Méthode | Endpoint | Description | Paylod (Body) | Réponse Attendue |
-| :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/api/auth/login/` | Connexion utilisateur (Admin/Staff) | `{ "email": "...", "password": "..." }` | `{ "access": "...", "refresh": "...", "user": { "id": "...", "role": "..." } }` |
-| **POST** | `/api/auth/token/refresh/` | Rafraîchir le token d'accès | `{ "refresh": "..." }` | `{ "access": "..." }` |
-| **POST** | `/api/auth/logout/` | Déconnexion (Blacklist refresh token) | `{ "refresh": "..." }` | `204 No Content` |
+3. Onglet : Rapports Financiers
+Cet onglet gère tout l'aspect financier, les créances et les prévisions.
 
----
+Endpoint : GET /dashboard/financial/?period=daily (ou monthly) Description : Retourne un objet complexe contenant trois sections principales.
 
-## 3. Module : Utilisateurs Admin (Admin Users)
-
-Gestion des accès à la plateforme (Administrateurs, Gestionnaires, Superviseurs).
-*Ref: `src/app/(main)/dashboard/admin-users/` et `schema.ts`*
-
-**Modèle de Donnée (AdminUser)**
-*   `id` (string/uuid)
-*   `name` (string) : Nom complet
-*   `email` (string)
-*   `role` (enum) : `Super Admin` | `Gestionnaire` | `Superviseur`
-*   `status` (enum) : `Actif` | `Inactif`
-*   `lastConnection` (datetime, readonly)
-
-**Endpoints Requis**
-
-| Méthode | Endpoint | Description |
-| :--- | :--- | :--- |
-| **GET** | `/api/admin-users/` | Liste des admins (avec pagination/recherche). |
-| **POST** | `/api/admin-users/` | Créer un nouvel admin. Body: `{ name, email, role, status }`. Mot de passe à générer ou envoyer par email. |
-| **GET** | `/api/admin-users/{id}/` | Détails d'un admin. |
-| **PUT** | `/api/admin-users/{id}/` | Modifier un admin (Role, Statut). |
-| **DELETE** | `/api/admin-users/{id}/` | Supprimer un admin (soft delete recommandé). |
-
----
-
-## 4. Module : Agents
-
-Gestion des agents de terrain (livreurs/collecteurs).
-
-**Modèle de Donnée (Agent)**
-*   `id` (string/uuid)
-*   `nom` (string)
-*   `prenom` (string)
-*   `telephone` (string)
-*   `email` (string, optionnel)
-*   `tricycle_assigne` (string) : Référence ou ID du véhicule
-*   `statut` (enum) : `actif` | `inactif` | `en_tournee`
-*   `date_embauche` (date)
-
-**Endpoints Requis**
-
-| Méthode | Endpoint | Description |
-| :--- | :--- | :--- |
-| **GET** | `/api/agents/` | Liste des agents. |
-| **POST** | `/api/agents/` | Créer un agent. |
-| **GET** | `/api/agents/{id}/` | Détails d'un agent (incluant historique simple). |
-| **PUT** | `/api/agents/{id}/` | Mettre à jour (infos perso, statut). |
-| **DELETE** | `/api/agents/{id}/` | Désactiver un agent. |
-
----
-
-## 5. Module : Clients
-
-Gestion des points de vente et clients finaux.
-
-**Modèle de Donnée (Client)**
-*   `id` (string/uuid)
-*   `code_client` (string, auto-généré, ex: `CL-1234`)
-*   `nom_point_vente` (string)
-*   `responsable` (string) : Nom du contact
-*   `telephone` (string)
-*   `adresse` (string)
-*   `localisation_gps` (string/json, optionnel) : `{ lat, lng }`
-*   `status` (enum) : `actif` | `inactif`
-
-**Endpoints Requis**
-
-| Méthode | Endpoint | Description |
-| :--- | :--- | :--- |
-| **GET** | `/api/clients/` | Liste des clients. |
-| **POST** | `/api/clients/` | Créer un client. |
-| **GET** | `/api/clients/{id}/` | Détails client + Historique commandes récent. |
-| **PUT** | `/api/clients/{id}/` | Mettre à jour client. |
-| **DELETE** | `/api/clients/{id}/` | Désactiver client. |
-
----
-
-## 6. Module : Commandes & Livraisons
-
-Gestion du flux opérationnel.
-
-**Modèle de Donnée (Commande/Livraison)**
-*   `id` (string/uuid)
-*   `client_id` (rel: Client)
-*   `agent_id` (rel: Agent, peut être null au début)
-*   `date_commande` (datetime)
-*   `statut` (enum) : `en_attente` | `en_cours` | `livre` | `annule`
-*   `montant` (decimal)
-*   `volume_m3` (decimal)
-*   `is_validated` (boolean) : Pour confirmation finale admin
-
-**Endpoints Requis**
-
-| Méthode | Endpoint | Description |
-| :--- | :--- | :--- |
-| **GET** | `/api/commandes/` | Liste des commandes (Filtres: statut, date). |
-| **POST** | `/api/commandes/` | Créer une commande. Body: `{ client_id, items: [...], ... }` |
-| **POST** | `/api/commandes/{id}/assign_agent/` | Assigner une commande à un agent. Body: `{ agent_id }` |
-| **GET** | `/api/livraisons/` | Liste des livraisons (Vue orientée logistique). |
-| **PATCH** | `/api/livraisons/{id}/validate/` | Valider une livraison (Changement statut -> livre + validation admin). |
-
----
-
-## 7. Module : Statistiques & Rapports
-
-Données pour les graphiques et KPI.
-*Ref: `src/app/(main)/dashboard/statistiques/`*
-
-**Endpoints Requis**
-
-| Méthode | Endpoint | Description |
-| :--- | :--- | :--- |
-| **GET** | `/api/dashboard/stats/` | KPIs globaux (Total livraisons, CA, etc.) pour le haut de page. |
-| **GET** | `/api/stats/production/` | Données pour graphiques production (Evolution volume/temps). |
-| **GET** | `/api/stats/performance-agents/` | Classement des agents (Top performers, nombre courses, CA généré). |
-| **GET** | `/api/stats/financial/` | Rapports financiers (CA par période, par zone). |
-
----
-
-## Résumé des Types Enumérés (Frontend vs Backend)
-
-Assurez-vous que ces valeurs correspondent exactement entre le front et le back.
-
-*   `AdminRole`: `['Super Admin', 'Gestionnaire', 'Superviseur']`
-*   `AdminStatus`: `['Actif', 'Inactif']`
-*   `AgentStatus`: `['actif', 'inactif', 'en_tournee']`
-*   `DeliveryStatus`: `['en_attente', 'en_cours', 'livre', 'annule']`
+json
+{
+  "revenue_vs_target": {          // Pour les barres de progression "Prévisions de Ventes"
+    "global": {
+      "current": 15000000,        // Réalisé
+      "target": 20000000          // Objectif
+    },
+    "tricycles": {
+      "current": 8000000,
+      "target": 10000000
+    },
+    "wholesale": {
+      "current": 7000000,
+      "target": 10000000
+    }
+  },
+  "debts": [                      // Pour le tableau "Créances Clients"
+    {
+      "client_name": "Maquis La Paix",
+      "amount_due": 50000,
+      "due_date": "2024-05-15"
+    },
+    {
+      "client_name": "Hôtel Ivoire",
+      "amount_due": 125000,
+      "due_date": "2024-05-10"
+    }
+  ],
+  "revenue_history": [            // Pour le tableau "Détail" ET le graphique "Évolution CA"
+    {
+      "period": "Jan 2024",       // Ou une date "2024-01-01"
+      "revenue": 4500000,
+      "target": 4000000,
+      "variation": 12.5           // Pourcentage
+    },
+    {
+      "period": "Feb 2024",
+      "revenue": 4200000,
+      "target": 4000000,
+      "variation": 5.0
+    }
+  ]
+}
+Résumé pour le développeur Backend
+Uniformiser le format de réponse : Idéalement, retournez toujours les données directement ou encapsulées dans une clé standard (ex: data). Le frontend gère actuellement res.data, res.data.data, res.data.stats ou res.data.results.
+Gestion des erreurs : Si une section est vide (exemple : pas de créances), retournez un tableau vide [] plutôt que null ou une erreur 404, afin que l'interface affiche "Aucune donnée" proprement au lieu de planter.
+Snake_case vs CamelCase : Le code TypeScript s'attend principalement à du snake_case (ex: total_amount, agent_name, peak_hours), assurez-vous que le backend respecte cette convection pour éviter des valeurs undefined.

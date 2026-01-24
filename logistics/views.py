@@ -3,10 +3,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
-from .models import AgentCommercial, Client, Commande, Livraison, LogActivite
+from .models import AgentCommercial, Client, Commande, Livraison, LogActivite, Tricycle
 from .serializers import (
     AgentCommercialSerializer, ClientSerializer, CommandeSerializer,
-    LivraisonSerializer, DashboardStatsSerializer, LogActiviteSerializer
+    LivraisonSerializer, DashboardStatsSerializer, LogActiviteSerializer, TricycleSerializer
 )
 
 class IsAdminOrReadOnly(permissions.BasePermission):
@@ -50,6 +50,16 @@ class AgentCommercialViewSet(viewsets.ModelViewSet):
         )
         
         serializer.save(user=user)
+
+    @action(detail=False, methods=['get'], url_path='active')
+    def active(self, request):
+        """Return active agents for assignment dropdown"""
+        qs = self.get_queryset().exclude(statut=AgentCommercial.Status.INACTIF)
+        data = [
+            {'id': str(a.id), 'name': f"{a.prenom} {a.nom}"}
+            for a in qs
+        ]
+        return Response(data)
 
 class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
@@ -107,6 +117,22 @@ class CommandeViewSet(viewsets.ModelViewSet):
         except AgentCommercial.DoesNotExist:
             return Response({'error': 'Agent not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    @action(detail=True, methods=['patch', 'put'], url_path='assign-agent')
+    def assign_agent_patch(self, request, pk=None):
+        """Assign agent with PATCH/PUT as per new needs"""
+        commande = self.get_object()
+        agent_id = request.data.get('agent_id')
+        if not agent_id:
+            return Response({'error': 'agent_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            agent = AgentCommercial.objects.get(id=agent_id)
+        except AgentCommercial.DoesNotExist:
+            return Response({'error': 'Agent not found'}, status=status.HTTP_404_NOT_FOUND)
+        commande.agent_assigne = agent
+        commande.statut = Commande.Status.EN_COURS
+        commande.save()
+        return Response(CommandeSerializer(commande).data)
+
 class LivraisonViewSet(viewsets.ModelViewSet):
     queryset = Livraison.objects.all()
     serializer_class = LivraisonSerializer
@@ -120,32 +146,35 @@ class LivraisonViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(livraisons, many=True)
             return Response(serializer.data)
         return Response({'error': 'agent_id required'}, status=status.HTTP_400_BAD_REQUEST)
-
-class DashboardViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAuthenticated]
-
-    @action(detail=False, methods=['get'])
-    def stats(self, request):
-        total_livraisons = Livraison.objects.count()
-        total_reussi = Livraison.objects.filter(statut=Livraison.Status.LIVRE).count()
-        total_echec = Livraison.objects.filter(statut=Livraison.Status.ECHEC).count()
-        total_agents = AgentCommercial.objects.count()
-        total_clients = Client.objects.count()
+    
+    @action(detail=True, methods=['patch'])
+    def validate(self, request, pk=None):
+        """Validate a delivery and mark as completed."""
+        livraison = self.get_object()
         
-        ca_agg = Livraison.objects.filter(statut=Livraison.Status.LIVRE).aggregate(total=Sum('montant_total'))
-        chiffre_affaires = ca_agg['total'] or 0
+        # Update status and validation fields
+        livraison.statut = Livraison.Status.LIVRE
+        livraison.is_validated = True
+        livraison.validated_by = request.user
+        livraison.save()
+        
+        serializer = self.get_serializer(livraison)
+        return Response({
+            'status': 'success',
+            'message': 'Livraison validated successfully',
+            'data': serializer.data
+        })
 
-        data = {
-            'total_livraisons': total_livraisons,
-            'total_reussi': total_reussi,
-            'total_echec': total_echec,
-            'total_agents': total_agents,
-            'total_clients': total_clients,
-            'chiffre_affaires': chiffre_affaires
-        }
-        return Response(data)
 
 class LogActiviteViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LogActivite.objects.all()
     serializer_class = LogActiviteSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+class TricycleViewSet(viewsets.ModelViewSet):
+    queryset = Tricycle.objects.all()
+    serializer_class = TricycleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['code', 'description']

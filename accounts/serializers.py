@@ -6,7 +6,7 @@ from dj_rest_auth.serializers import (
 )
 from drf_spectacular.utils import extend_schema_field
 from django.contrib.auth import get_user_model
-from .models import UserProfile, EmailVerification, OTPToken
+from .models import UserProfile, EmailVerification, OTPToken, AdminUser
 from typing import TYPE_CHECKING
 import string
 import random
@@ -241,3 +241,93 @@ class VerifyOTPSerializer(serializers.Serializer):
         data['user'] = user
         data['otp'] = otp
         return data
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """Serializer for AdminUser management."""
+    
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_id = serializers.UUIDField(source='user.id', read_only=True)
+    
+    class Meta:
+        model = AdminUser
+        fields = [
+            'id', 'user_id', 'user_email', 'name', 'role', 'status',
+            'last_connection', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user_id', 'user_email', 'last_connection', 'created_at', 'updated_at']
+
+
+class AdminUserCreateSerializer(serializers.Serializer):
+    """Serializer for creating new admin users."""
+    
+    email = serializers.EmailField()
+    name = serializers.CharField(max_length=255)
+    password = serializers.CharField(min_length=8, write_only=True, help_text="Admin's login password")
+    confirm_password = serializers.CharField(min_length=8, write_only=True, help_text="Confirm the password")
+    role = serializers.ChoiceField(choices=['super_admin', 'gestionnaire', 'superviseur'])
+    status = serializers.ChoiceField(choices=['actif', 'inactif'], default='actif')
+    
+    def validate_email(self, value):
+        """Validate email is not already registered."""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return value
+    
+    def validate(self, data):
+        """Validate that passwords match."""
+        if data.get('password') != data.get('confirm_password'):
+            raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
+        # Remove confirm_password from validated_data as we don't need it anymore
+        data.pop('confirm_password', None)
+        return data
+    
+    def create(self, validated_data):
+        """Create a new admin user with associated User account."""
+        email = validated_data['email']
+        name = validated_data['name']
+        password = validated_data['password']  # Use provided password instead of generating
+        role = validated_data['role']
+        status = validated_data['status']
+        
+        # Create User account with provided password
+        user = User.objects.create_user(
+            email=email,
+            password=password,  # Use the password from the form
+            user_type='admin',
+            first_name=name.split()[0] if name else 'Admin',
+            last_name=' '.join(name.split()[1:]) if len(name.split()) > 1 else 'User',
+            is_verified=True,
+            is_staff=True
+        )
+        
+        # Create AdminUser profile
+        admin_user = AdminUser.objects.create(
+            user=user,
+            name=name,
+            role=role,
+            status=status
+        )
+        
+        # Return data dict instead of instance for proper serialization
+        return {
+            'id': str(admin_user.id),
+            'user_id': str(admin_user.user.id),
+            'user_email': admin_user.user.email,
+            'name': admin_user.name,
+            'role': admin_user.role,
+            'status': admin_user.status,
+            'last_connection': admin_user.last_connection,
+            'created_at': admin_user.created_at,
+            'updated_at': admin_user.updated_at,
+            'message': 'Admin created successfully. Can login with provided credentials.'
+        }
+    
+    def to_representation(self, instance):
+        """Convert instance to dict if needed."""
+        if isinstance(instance, dict):
+            return instance
+        # If it's an AdminUser model instance, use AdminUserSerializer
+        from .models import AdminUser
+        if isinstance(instance, AdminUser):
+            return AdminUserSerializer(instance).data
+        return instance

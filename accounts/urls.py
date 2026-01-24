@@ -7,11 +7,12 @@ from dj_rest_auth.views import (
 from .views import (
     RegisterView, VerifyEmailView, ResendVerificationEmailView,
     PasswordResetRequestView, PasswordResetConfirmView,
-    SendOTPView, VerifyOTPView, UserViewSet
+    SendOTPView, VerifyOTPView, UserViewSet, AdminUserViewSet
 )
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
+router.register(r'admin-users', AdminUserViewSet, basename='admin-users')
 
 app_name = 'accounts'
 
@@ -33,6 +34,6 @@ urlpatterns = [
     # dj-rest-auth URLs (includes login, token/refresh)
     path('', include('dj_rest_auth.urls')),
     
-    # User management
+    # User and admin management
     path('', include(router.urls)),
 ]

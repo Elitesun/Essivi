@@ -12,12 +12,13 @@ import random
 import string
 
 from .models import (
-    User, UserProfile, EmailVerification, PasswordReset, OTPToken
+    User, UserProfile, EmailVerification, PasswordReset, OTPToken, AdminUser
 )
 from .serializers import (
     CustomUserDetailsSerializer, CustomRegisterSerializer,
     EmailVerificationSerializer, ResendVerificationEmailSerializer,
-    CustomPasswordChangeSerializer, SendOTPSerializer, VerifyOTPSerializer
+    CustomPasswordChangeSerializer, SendOTPSerializer, VerifyOTPSerializer,
+    AdminUserSerializer, AdminUserCreateSerializer
 )
 from .permissions import IsVerifiedUser, IsAdminUser, IsAgentUser, IsClientUser
 
@@ -379,4 +380,68 @@ class UserViewSet(viewsets.ModelViewSet):
             'status': 'error',
             'message': 'Failed to change password',
             'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+class AdminUserViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing admin users."""
+    
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+    filter_backends = [__import__('rest_framework.filters', fromlist=['SearchFilter']).SearchFilter]
+    search_fields = ['name', 'user__email', 'role']
+    ordering_fields = ['created_at', 'name', 'role', 'status']
+    ordering = ['-created_at']
+    
+    def get_queryset(self):
+        """Get admin users queryset."""
+        from .models import AdminUser
+        return AdminUser.objects.all()
+    
+    def get_serializer_class(self):
+        """Return serializer based on action."""
+        from .serializers import AdminUserSerializer, AdminUserCreateSerializer
+        if self.action == 'create':
+            return AdminUserCreateSerializer
+        return AdminUserSerializer
+    
+    def perform_create(self, serializer):
+        """Create a new admin user."""
+        serializer.save()
+    
+    def perform_update(self, serializer):
+        """Update admin user."""
+        admin_user = serializer.save()
+        return admin_user
+    
+    @action(detail=False, methods=['get'])
+    def by_role(self, request):
+        """Get admins filtered by role."""
+        from .models import AdminUser
+        role = request.query_params.get('role')
+        if role:
+            admins = AdminUser.objects.filter(role=role)
+            serializer = self.get_serializer(admins, many=True)
+            return Response({
+                'status': 'success',
+                'data': serializer.data
+            })
+        return Response({
+            'status': 'error',
+            'message': 'role parameter required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'])
+    def by_status(self, request):
+        """Get admins filtered by status."""
+        from .models import AdminUser
+        admin_status = request.query_params.get('status')
+        if admin_status:
+            admins = AdminUser.objects.filter(status=admin_status)
+            serializer = self.get_serializer(admins, many=True)
+            return Response({
+                'status': 'success',
+                'data': serializer.data
+            })
+        return Response({
+            'status': 'error',
+            'message': 'status parameter required'
         }, status=status.HTTP_400_BAD_REQUEST)

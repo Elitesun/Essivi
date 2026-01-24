@@ -1,18 +1,25 @@
 from rest_framework import serializers
-from .models import AgentCommercial, Client, Commande, Livraison, LogActivite
+from .models import AgentCommercial, Client, Commande, Livraison, LogActivite, Tricycle
 from accounts.serializers import CustomUserDetailsSerializer
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+class TricycleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tricycle
+        fields = ['id', 'code', 'description', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
 class AgentCommercialSerializer(serializers.ModelSerializer):
     user_details = CustomUserDetailsSerializer(source='user', read_only=True)
     email = serializers.EmailField(write_only=True, required=False)
+    tricycle_details = TricycleSerializer(source='tricycle_assigne', read_only=True)
 
     class Meta:
         model = AgentCommercial
         fields = '__all__'
-        read_only_fields = ['user', 'created_at', 'updated_at']
+        read_only_fields = ['user', 'tricycle_assigne', 'created_at', 'updated_at']
 
 class ClientSerializer(serializers.ModelSerializer):
     user_details = CustomUserDetailsSerializer(source='user', read_only=True)

@@ -244,3 +244,36 @@ class OTPToken(models.Model):
             code=code,
             expires_at=expires_at
         )
+
+class AdminUser(models.Model):
+    """Admin users with role-based access control."""
+    
+    class AdminRole(models.TextChoices):
+        SUPER_ADMIN = 'super_admin', 'Super Admin'
+        GESTIONNAIRE = 'gestionnaire', 'Gestionnaire'
+        SUPERVISEUR = 'superviseur', 'Superviseur'
+    
+    class AdminStatus(models.TextChoices):
+        ACTIF = 'actif', 'Actif'
+        INACTIF = 'inactif', 'Inactif'
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_profile')
+    name = models.CharField(max_length=255)
+    role = models.CharField(max_length=20, choices=AdminRole.choices, default=AdminRole.SUPERVISEUR)
+    status = models.CharField(max_length=20, choices=AdminStatus.choices, default=AdminStatus.ACTIF)
+    last_connection = models.DateTimeField(null=True, blank=True, help_text="Last login timestamp")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Admin User'
+        verbose_name_plural = 'Admin Users'
+        indexes = [
+            models.Index(fields=['role']),
+            models.Index(fields=['status']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_role_display()})"

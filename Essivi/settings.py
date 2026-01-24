@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     # Custom apps
     'accounts',
     'logistics',
+    'analytics',
+    'finance',
 ]
 
 MIDDLEWARE = [

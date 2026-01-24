@@ -298,3 +298,16 @@ INSTALLED_APPS = [
 - **No SMS**: Email only for all notifications and 2FA
 - **Financial immutability**: Treat delivery records like accounting ledgers
 - **Performance**: Index on (agent, client, status, timestamp) for common queries
+
+
+## 📝 **Maintenance Note**
+
+**IMPORTANT**: This instruction file must be kept up-to-date as the project evolves. When implementing new features, refactoring code, or changing architecture decisions:
+1. Update relevant sections immediately after changes
+2. Document new patterns, conventions, or constraints
+3. Remove outdated information to prevent AI from using obsolete approaches
+4. Keep examples synchronized with actual implementation
+5. Version control this file alongside code changes
+6. Update the postman collection and API docs accordingly
+
+**A stale instruction file leads to inconsistent code and technical debt.**
