@@ -31,6 +31,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['user_type'] = user.user_type
         token['is_verified'] = user.is_verified
         
+        # Add admin role if user is admin
+        if user.user_type == 'admin':
+            try:
+                admin_profile = user.admin_profile
+                token['admin_role'] = admin_profile.role
+            except AdminUser.DoesNotExist:
+                token['admin_role'] = None
+        
         return token
 
 
@@ -51,11 +59,22 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
     """Extended user details serializer with profile and user_type."""
     
     profile = UserProfileSerializer(read_only=True)
+    admin_role = serializers.SerializerMethodField()
     
     @extend_schema_field(serializers.CharField)
     def get_full_name(self, obj):
         """Get the full name from the user object."""
         return obj.full_name
+    
+    @extend_schema_field(serializers.CharField)
+    def get_admin_role(self, obj):
+        """Get admin role if user is admin."""
+        if obj.user_type == 'admin':
+            try:
+                return obj.admin_profile.role
+            except AdminUser.DoesNotExist:
+                return None
+        return None
     
     full_name = serializers.SerializerMethodField()
     
@@ -63,9 +82,9 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
         model = User
         fields = [
             'id', 'email', 'phone', 'first_name', 'last_name', 'full_name',
-            'user_type', 'is_verified', 'is_active', 'date_joined', 'profile'
+            'user_type', 'admin_role', 'is_verified', 'is_active', 'date_joined', 'profile'
         ]
-        read_only_fields = ['id', 'email', 'user_type', 'is_verified', 'date_joined']
+        read_only_fields = ['id', 'email', 'user_type', 'admin_role', 'is_verified', 'date_joined']
 
 
 class CustomLoginSerializer(LoginSerializer):

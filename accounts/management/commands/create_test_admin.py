@@ -6,17 +6,25 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         User = get_user_model()
+        from accounts.models import AdminUser
+        
         email = 'admin@essivivi.com'
         password = 'password123'
 
         if not User.objects.filter(email=email).exists():
-            User.objects.create_superuser(
+            user = User.objects.create_superuser(
                 email=email,
                 password=password,
                 first_name='Admin',
                 last_name='Test',
                 is_verified=True
             )
-            self.stdout.write(self.style.SUCCESS(f'Successfully created admin user: {email} / {password}'))
-        else:
-            self.stdout.write(self.style.WARNING(f'Admin user {email} already exists'))
+            
+            # Create AdminUser profile
+            AdminUser.objects.create(
+                user=user,
+                name='Admin Test',
+                role='super_admin',
+                status='actif'
+            )
+            
